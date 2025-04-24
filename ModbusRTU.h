@@ -29,6 +29,7 @@ public:
     bool writeMultipleRegisters(uint8_t slaveId, uint16_t startAddress, const std::vector<uint16_t>& values);
     
     CString getLastError() const; // Function to return the last error message
+	void resetSerialPort();
 
 private:
     HANDLE hSerial;
@@ -98,11 +99,11 @@ inline bool ModbusRTU::connect()
 	//Set to Timeouts
 	COMMTIMEOUTS timeout;
 	GetCommTimeouts(hSerial, &timeout);
-	timeout.ReadIntervalTimeout = 1; //1
-	timeout.ReadTotalTimeoutConstant = 1;
-	timeout.ReadTotalTimeoutMultiplier = 0;
-	timeout.WriteTotalTimeoutConstant = 1;
-	timeout.WriteTotalTimeoutMultiplier = 0;
+	timeout.ReadIntervalTimeout = 10; //1
+	timeout.ReadTotalTimeoutConstant = 10;
+	timeout.ReadTotalTimeoutMultiplier = 1;
+	timeout.WriteTotalTimeoutConstant = 10;
+	timeout.WriteTotalTimeoutMultiplier = 1;
 	if (!SetCommTimeouts(hSerial, &timeout))
 	{
 		setErrorString("Error setting serial timeout state.");
@@ -114,11 +115,11 @@ inline bool ModbusRTU::connect()
 
 inline void ModbusRTU::disconnect() 
 {
-    if (hSerial != INVALID_HANDLE_VALUE) 
-    {
-        CloseHandle(hSerial);
-        hSerial = INVALID_HANDLE_VALUE;
-    }
+	if (hSerial != INVALID_HANDLE_VALUE) 
+	{
+		CloseHandle(hSerial);
+		hSerial = INVALID_HANDLE_VALUE;
+	}
 }
 
 inline void ModbusRTU::buildReadRequest(uint8_t functionCode, uint8_t slaveId, uint16_t startAddress, uint16_t quantity, std::vector<uint8_t>& request) 
@@ -369,6 +370,7 @@ inline bool ModbusRTU::sendRequest(const uint8_t* request, size_t requestLength)
     if (!WriteFile(hSerial, request, requestLength, &bytesWritten, NULL) || bytesWritten != requestLength) 
     {
         setErrorString("Error sending request.");
+		resetSerialPort();
         return false;
     }
     return true;
@@ -382,6 +384,7 @@ inline bool ModbusRTU::receiveResponse(uint8_t* response, size_t responseLength)
         setErrorString("Error receiving response.");
         return false;
     }
+	resetSerialPort();
     return true;
 }
 
@@ -412,4 +415,7 @@ inline CString ModbusRTU::getLastError() const
     return errorString.c_str();
 }
 
+inline void ModbusRTU::resetSerialPort() {
+	PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
+}
 #endif // MODBUS_RTU_H
